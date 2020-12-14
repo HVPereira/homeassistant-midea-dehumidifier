@@ -19,7 +19,7 @@ from homeassistant.components.humidifier.const import (
     DEFAULT_MAX_HUMIDITY,
     DEFAULT_MIN_HUMIDITY,
     DEVICE_CLASS_DEHUMIDIFIER,
-	SERVICE_SET_HUMIDITY,
+    SERVICE_SET_HUMIDITY,
     SERVICE_SET_MODE,
     SUPPORT_MODES
 )
@@ -79,12 +79,15 @@ ATTR_ION_SET_SWITCH = "ion"
 ATTR_FAN_SPEED_MODE = "fan_speed_mode"
 #ATTR_FAN_SPEED = "fan_speed"
 ATTR_CURRRENT_HUMIDITY = "current_humidity"
+ATTR_TANK_SHOW = 'tank_show'
+
 PROP_TO_ATTR = {
     "ionSetSwitch": ATTR_ION_SET_SWITCH,
-	"mode": ATTR_MODE,
+    "mode": ATTR_MODE,
     "windSpeedMode": ATTR_FAN_SPEED_MODE,
     "windSpeed": ATTR_FAN_SPEED,
-	"current_humidity": ATTR_CURRRENT_HUMIDITY,
+    "current_humidity": ATTR_CURRRENT_HUMIDITY,
+    "tank_show": ATTR_TANK_SHOW,
 }
 
 
@@ -121,7 +124,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         entity_id = call.data[ATTR_ENTITY_ID]
         ion_state = call.data[ATTR_ION_STATE]
         async_dispatcher_send(hass, SERVICE_SET_ION_STATE.format(entity_id), ion_state)
-		
+        
     async def async_service_set_mode(call):
         entity_id = call.data[ATTR_ENTITY_ID]
         mode_name = call.data[ATTR_MODE]
@@ -163,15 +166,15 @@ class MideaDehumidifierDevice(HumidifierEntity):
         self._unique_id = 'midea_dehumidifier_' + targetDevice['id']
 
         #Default values for device state
-        self._powerMode = None			# 0:off, 1:on
-        self._mode = None			    # device's current mode ['Target_humidity', 'Continuos', 'Smart', 'Dryer']
+        self._powerMode = None          # 0:off, 1:on
+        self._mode = None               # device's current mode ['Target_humidity', 'Continuos', 'Smart', 'Dryer']
         self._ionSetSwitch = None       # 0:off, 1:on
-        self._humidity = None			# current humidity
-        self._humidity_set = None		# target hunidity
-        self._humidity_dot = None		# current humidity (decimal)
-        self._humidity_dot_set = None	# target humidity (decimal)
-        self._windSpeed = None			# fan speed [1..99]
-        self._windSpeedMode = None		# fan speed mode (Silent:40, Medium:60, High:80)
+        self._humidity = None           # current humidity
+        self._humidity_set = None       # target hunidity
+        self._humidity_dot = None       # current humidity (decimal)
+        self._humidity_dot_set = None   # target humidity (decimal)
+        self._windSpeed = None          # fan speed [1..99]
+        self._windSpeedMode = None      # fan speed mode (Silent:40, Medium:60, High:80)
         self._isDisplay = None
         self._filterShow = False
         self._tankShow = False
@@ -252,6 +255,11 @@ class MideaDehumidifierDevice(HumidifierEntity):
     def current_humidity(self):
         """Return the current humidity."""
         return self._humidity
+
+    @property
+    def tank_show(self):
+        """Return the current humidity."""
+        return self._tankShow
 
     @property
     def min_humidity(self):
@@ -346,7 +354,7 @@ class MideaDehumidifierDevice(HumidifierEntity):
                 if state:
                     #attrs = self.__hass_update_state_attribute(state, ATTR_ION_SET_SWITCH, ion_state)
                     attrs = state.attributes.copy()
-                    attrs[ATTR_ION_SET_SWITCH] = ion_state					
+                    attrs[ATTR_ION_SET_SWITCH] = ion_state                  
                     self._hass.states.async_set('humidifier.'+self._unique_id, state.state, attrs, force_update = True)
 
             else:
@@ -368,7 +376,7 @@ class MideaDehumidifierDevice(HumidifierEntity):
                 if mode == 4:    
                     self._windSpeedMode = 'High'
                     self._windSpeed = self._fan_dict.get('HIGH', 0)
-				
+                
                 #Update state attribute
                 state = self._hass.states.get('humidifier.'+self._unique_id)
                 if state:
@@ -378,7 +386,7 @@ class MideaDehumidifierDevice(HumidifierEntity):
                     if mode == 4:
                         attrs[ATTR_FAN_SPEED_MODE] = 'High'
                         attrs[ATTR_FAN_SPEED] = self._fan_dict.get('HIGH', 0)
-					
+                    
                     #attrs = self.__hass_update_state_attribute(state, ATTR_MODE, mode)
                     self._hass.states.async_set('humidifier.'+self._unique_id, state.state, attrs, force_update = True)
 
@@ -439,7 +447,7 @@ class MideaDehumidifierDevice(HumidifierEntity):
             #PROVE
             #async_update_entity(self._hass, self._name)
             #async_update_entity(self._hass, 'humidifier.midea_dehumidifier_17592186063322')
-			#ALTERNATIVA DA PROVARE: self.async_update_entity(self._hass, self._unique_id)
+            #ALTERNATIVA DA PROVARE: self.async_update_entity(self._hass, self._unique_id)
 
 #            state = hass.states.get(entity_id)
 #            if state:
@@ -497,7 +505,7 @@ class MideaDehumidifierDevice(HumidifierEntity):
         """Update mode."""
         _LOGGER.info("midea-dehumidifier: async_set_mode called; current_mode=%s, new mode=%s", self._mode, mode)
         if self.is_on:
-            mode_num = self._modes_dict.get(mode.upper(), 0)			
+            mode_num = self._modes_dict.get(mode.upper(), 0)            
             _LOGGER.debug("midea-dehumi: sending update status command via Web API...")
             #res = self._client.send_mode_command(self._device["id"], mode_num)
             res = await self.hass.async_add_executor_job(self._client.send_mode_command, self._device["id"], mode_num)
@@ -508,4 +516,3 @@ class MideaDehumidifierDevice(HumidifierEntity):
                 self.__refresh_device_status()
             else:
                 _LOGGER.error("climate.midea-dehumi: send_mode_command ERROR.")
-
